@@ -160,14 +160,18 @@ final class SliceRunner {
                 guard let stl = try? Data(contentsOf: src) else { throw SliceError.message(L("Modell fehlt: ", "Model missing: ") + mid) }
                 var paint: [Int: String] = [:]
                 for (k, v) in o["paint"] as? [String: String] ?? [:] { if let i = Int(k) { paint[i] = v } }
+                var fuzzy: [Int: String] = [:]
+                for (k, v) in o["fuzzy"] as? [String: String] ?? [:] { if let i = Int(k) { fuzzy[i] = v } }
+                var ranges: [(Double, Double, Int)] = []
+                for r in o["ranges"] as? [[Double]] ?? [] where r.count == 3 { ranges.append((r[0], r[1], Int(r[2]))) }
                 var settings: [String: String] = [:]
                 for (k, v) in o["settings"] as? [String: Any] ?? [:] { settings[k] = (v as? String) ?? (v as? NSNumber)?.stringValue }
                 objs.append(ThreeMF.Object(name: o["name"] as? String ?? "object", stl: stl,
                                            transform: o["transform"] as? [Double] ?? [], extruder: o["extruder"] as? Int, paint: paint,
-                                           settings: settings))
+                                           fuzzy: fuzzy, ranges: ranges, settings: settings))
             }
             guard !objs.isEmpty else { throw SliceError.message(L("Keine Objekte", "No objects")) }
-            try ThreeMF.build(objs).write(to: modelURL)
+            try ThreeMF.build(objs, rangeLayerHeight: (spec["range_layer_height"] as? Double) ?? 0.2).write(to: modelURL)
             if spec["multi"] as? Bool ?? false {
                 // The tower where the phone shows it; else the first free corner.
                 if let t = spec["wipe_tower"] as? [Double], t.count == 2 {

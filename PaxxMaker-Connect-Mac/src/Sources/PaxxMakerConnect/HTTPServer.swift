@@ -35,6 +35,8 @@ final class HTTPServer {
     let port: UInt16
     let handler: Handler
     private(set) var running = false
+    /// Called when the listener dies (e.g. the network went away in sleep).
+    var onFailure: () -> Void = {}
 
     init(port: UInt16, handler: @escaping Handler) {
         self.port = port
@@ -50,7 +52,7 @@ final class HTTPServer {
         l.newConnectionHandler = { [weak self] conn in self?.serve(conn) }
         l.stateUpdateHandler = { [weak self] st in
             if case .ready = st { self?.running = true }
-            if case .failed = st { self?.running = false }
+            if case .failed = st { self?.running = false; self?.onFailure() }
             if case .cancelled = st { self?.running = false }
         }
         l.start(queue: queue)

@@ -348,6 +348,36 @@ func (r *SliceRunner) run(job *SliceJob) error {
 					}
 				}
 			}
+			fuzzy := map[int]string{}
+			if fm, ok := o["fuzzy"].(JSONObject); ok {
+				for k, v := range fm {
+					if i, err := strconv.Atoi(k); err == nil {
+						if s, ok := v.(string); ok {
+							fuzzy[i] = s
+						}
+					}
+				}
+			}
+			var ranges [][3]float64
+			if rl, ok := o["ranges"].([]any); ok {
+				for _, r := range rl {
+					if a, ok := r.([]any); ok && len(a) == 3 {
+						var v [3]float64
+						good := true
+						for k := 0; k < 3; k++ {
+							f, ok := numOf(a[k])
+							if !ok {
+								good = false
+								break
+							}
+							v[k] = f
+						}
+						if good {
+							ranges = append(ranges, v)
+						}
+					}
+				}
+			}
 			settings := map[string]string{}
 			if sm, ok := o["settings"].(JSONObject); ok {
 				for k, v := range sm {
@@ -381,13 +411,17 @@ func (r *SliceRunner) run(job *SliceJob) error {
 			if f, ok := numOf(o["extruder"]); ok {
 				ext = int(f)
 			}
-			objs = append(objs, ThreeMFObject{Name: name, STL: stl, Transform: transform, Extruder: ext, Paint: paint, Settings: settings})
+			objs = append(objs, ThreeMFObject{Name: name, STL: stl, Transform: transform, Extruder: ext, Paint: paint, Fuzzy: fuzzy, Ranges: ranges, Settings: settings})
 		}
 	}
 	if len(objs) == 0 {
 		return errors.New(L("Keine Objekte", "No objects"))
 	}
-	threeMF, err := buildThreeMF(objs)
+	rangeLH := 0.2
+	if f, ok := numOf(spec["range_layer_height"]); ok && f > 0 {
+		rangeLH = f
+	}
+	threeMF, err := buildThreeMF(objs, rangeLH)
 	if err != nil {
 		return err
 	}

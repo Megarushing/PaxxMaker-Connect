@@ -75,7 +75,9 @@ func handleInfo(w http.ResponseWriter, r *http.Request) {
 	for _, a := range installedOrcaApps() {
 		apps = append(apps, a.Key)
 	}
-	writeJSON(w, 200, JSONObject{"name": appName, "version": version, "host": hostName(), "orca": orcaInstalled(), "apps": apps})
+	writeJSON(w, 200, JSONObject{"name": appName, "version": version, "host": hostName(), "orca": orcaInstalled(), "apps": apps,
+		// What this version can do beyond the basics — the app checks it.
+		"features": []string{"fuzzy", "ranges"}})
 }
 
 func appFromQuery(r *http.Request) (OrcaApp, bool) {

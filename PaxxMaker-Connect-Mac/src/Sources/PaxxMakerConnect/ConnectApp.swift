@@ -52,6 +52,27 @@ final class ConnectState: ObservableObject {
         }
         start()
         cleanupOldJobs()
+        // After sleep the network comes back with new addresses and the
+        // listener or its Bonjour entry may be gone while the app still
+        // says "running": start the service afresh on every wake.
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self, self.server != nil else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.restart(L("nach dem Aufwachen", "after wake")) }
+        }
+    }
+
+    /// Stop and start again (keeps the same port, code and name).
+    func restart(_ reason: String, attempt: Int = 1) {
+        server?.stop(); server = nil
+        // A moment for the old listener to let go of the port.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            self.start()
+            if self.server != nil {
+                self.append(L("Dienst neu gestartet ", "Service restarted ") + reason)
+            } else if attempt < 5 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.restart(reason, attempt: attempt + 1) }
+            }
+        }
     }
 
     var hostName: String { Host.current().localizedName ?? ProcessInfo.processInfo.hostName }
@@ -90,6 +111,13 @@ final class ConnectState: ObservableObject {
     func start() {
         let s = HTTPServer(port: Self.port) { [weak self] req in self?.route(req) ?? .json(["error": "gone"], status: 500) }
         do {
+            s.onFailure = { [weak self] in
+                // Try again shortly — e.g. the network was not back yet.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                    guard let self, self.server === s else { return }
+                    self.restart(L("nach einem Ausfall", "after a failure"))
+                }
+            }
             try s.start(serviceName: "PaxxMaker-Connect (\(hostName))", txt: ["v": Self.version, "host": hostName])
             server = s
             running = true
@@ -136,7 +164,9 @@ final class ConnectState: ObservableObject {
     private func route(_ req: HTTPRequest) -> HTTPResponse {
         if req.method == "GET", req.path == "/v1/info" {
             return .json(["name": "PaxxMaker-Connect", "version": Self.version, "host": hostName,
-                          "orca": orcaInstalled, "apps": installedApps.map(\.key)])
+                          "orca": orcaInstalled, "apps": installedApps.map(\.key),
+                          // What this version can do beyond the basics — the app checks it.
+                          "features": ["fuzzy", "ranges"]])
         }
         guard req.headers["x-paxx-token"] == token else { return .json(["error": "token"], status: 401) }
 

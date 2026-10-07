@@ -5,7 +5,7 @@ import Compression
 // object — the way the phone's placement reaches Orca exactly, since the CLI
 // has no flag for a free position. The head per object goes into
 // Metadata/model_settings.config and painted faces into Orca's paint_color
-// triangle attribute, which is how Orca's own projects carry colour
+// (and painted fuzzy skin into paint_fuzzy_skin) triangle attribute, which is how Orca's own projects carry colour
 // painting. Includes just enough ZIP to do it (deflate via the Compression
 // framework, CRC-32 by hand).
 
@@ -19,6 +19,12 @@ enum ThreeMF {
         /// STL): the phone serialises its subdivision tree exactly like
         /// TriangleSelector::serialize, so Orca reads it as its own painting.
         var paint: [Int: String] = [:]
+        /// Painted fuzzy skin per triangle, the same encoding — Orca's
+        /// paint_fuzzy_skin attribute (state 1 = fuzzy).
+        var fuzzy: [Int: String] = [:]
+        /// Height ranges printed with another head: (from mm, to mm, head) —
+        /// Orca's height range modifiers, in Metadata/layer_config_ranges.xml.
+        var ranges: [(Double, Double, Int)] = []
         /// The object's own process settings (Orca keys and value spellings),
         /// written as metadata like Orca's per-object overrides.
         var settings: [String: String] = [:]
@@ -80,7 +86,9 @@ enum ThreeMF {
         return v.map { String(format: "%.6f", $0) }.joined(separator: " ")
     }
 
-    static func build(_ objects: [Object]) -> Data {
+    /// `rangeLayerHeight`: every height range needs its own layer height —
+    /// Orca crashes on one without (tested) — the slice's own is given.
+    static func build(_ objects: [Object], rangeLayerHeight: Double = 0.2) -> Data {
         var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<model unit=\"millimeter\" xml:lang=\"en-US\" xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\"><resources>"
         var items = ""
         var settings = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<config>\n"
@@ -93,11 +101,10 @@ enum ThreeMF {
             for v in verts { xml += String(format: "<vertex x=\"%.5f\" y=\"%.5f\" z=\"%.5f\"/>", v.x, v.y, v.z) }
             xml += "</vertices><triangles>"
             for (ti, t) in tris.enumerated() {
-                if let code = o.paint[ti], !code.isEmpty, code.allSatisfy({ $0.isHexDigit }) {
-                    xml += "<triangle v1=\"\(t.0)\" v2=\"\(t.1)\" v3=\"\(t.2)\" paint_color=\"\(code)\"/>"
-                } else {
-                    xml += "<triangle v1=\"\(t.0)\" v2=\"\(t.1)\" v3=\"\(t.2)\"/>"
-                }
+                xml += "<triangle v1=\"\(t.0)\" v2=\"\(t.1)\" v3=\"\(t.2)\""
+                if let code = o.paint[ti], !code.isEmpty, code.allSatisfy({ $0.isHexDigit }) { xml += " paint_color=\"\(code)\"" }
+                if let code = o.fuzzy[ti], !code.isEmpty, code.allSatisfy({ $0.isHexDigit }) { xml += " paint_fuzzy_skin=\"\(code)\"" }
+                xml += "/>"
             }
             xml += "</triangles></mesh></object>"
             items += "<item objectid=\"\(id)\" transform=\"\(matrixAttr(o.transform))\"/>"
@@ -108,11 +115,23 @@ enum ThreeMF {
             settings += "  </object>\n"
         }
         settings += "</config>\n"
+        var rangesXML = ""
+        for (i, o) in objects.enumerated() where !o.ranges.isEmpty {
+            rangesXML += " <object id=\"\(i + 1)\">\n"
+            for r in o.ranges where r.1 > r.0 {
+                rangesXML += "  <range min_z=\"\(String(format: "%.3f", r.0))\" max_z=\"\(String(format: "%.3f", r.1))\">\n"
+                rangesXML += "   <option opt_key=\"extruder\">\(max(1, r.2))</option>\n"
+                rangesXML += "   <option opt_key=\"layer_height\">\(String(format: "%.3f", rangeLayerHeight))</option>\n  </range>\n"
+            }
+            rangesXML += " </object>\n"
+        }
         xml += "</resources><build>\(items)</build></model>"
         let types = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"model\" ContentType=\"application/vnd.ms-package.3dmanufacturing-3dmodel+xml\"/></Types>"
         let rels = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Target=\"/3D/3dmodel.model\" Id=\"rel0\" Type=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\"/></Relationships>"
         return ZipWriter.archive([("[Content_Types].xml", Data(types.utf8)), ("_rels/.rels", Data(rels.utf8)),
-                                  ("3D/3dmodel.model", Data(xml.utf8)), ("Metadata/model_settings.config", Data(settings.utf8))])
+                                  ("3D/3dmodel.model", Data(xml.utf8)), ("Metadata/model_settings.config", Data(settings.utf8))]
+                                 + (rangesXML.isEmpty ? [] : [("Metadata/layer_config_ranges.xml",
+                                                               Data(("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<objects>\n" + rangesXML + "</objects>\n").utf8))]))
     }
 }
 

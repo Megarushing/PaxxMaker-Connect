@@ -29,6 +29,12 @@ type ThreeMFObject struct {
 	// the phone serialises its subdivision tree exactly like
 	// TriangleSelector::serialize, so Orca reads it as its own painting.
 	Paint map[int]string
+	// Painted fuzzy skin per triangle, the same encoding — Orca's
+	// paint_fuzzy_skin attribute (state 1 = fuzzy).
+	Fuzzy map[int]string
+	// Height ranges printed with another head: {from mm, to mm, head} —
+	// Orca's height range modifiers, in Metadata/layer_config_ranges.xml.
+	Ranges [][3]float64
 	// The object's own process settings (Orca keys and value spellings),
 	// written as metadata like Orca's per-object overrides.
 	Settings map[string]string
@@ -131,7 +137,9 @@ func isKeyChar(c rune) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
-func buildThreeMF(objects []ThreeMFObject) ([]byte, error) {
+// rangeLayerHeight: every height range needs its own layer height — Orca
+// crashes on one without (tested) — the slice's own is given.
+func buildThreeMF(objects []ThreeMFObject, rangeLayerHeight float64) ([]byte, error) {
 	var xml strings.Builder
 	xml.WriteString("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<model unit=\"millimeter\" xml:lang=\"en-US\" xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\"><resources>")
 	var items strings.Builder
@@ -147,11 +155,14 @@ func buildThreeMF(objects []ThreeMFObject) ([]byte, error) {
 		}
 		xml.WriteString("</vertices><triangles>")
 		for ti, t := range tris {
+			fmt.Fprintf(&xml, "<triangle v1=\"%d\" v2=\"%d\" v3=\"%d\"", t[0], t[1], t[2])
 			if code, ok := o.Paint[ti]; ok && isHex(code) {
-				fmt.Fprintf(&xml, "<triangle v1=\"%d\" v2=\"%d\" v3=\"%d\" paint_color=\"%s\"/>", t[0], t[1], t[2], code)
-			} else {
-				fmt.Fprintf(&xml, "<triangle v1=\"%d\" v2=\"%d\" v3=\"%d\"/>", t[0], t[1], t[2])
+				fmt.Fprintf(&xml, " paint_color=\"%s\"", code)
 			}
+			if code, ok := o.Fuzzy[ti]; ok && isHex(code) {
+				fmt.Fprintf(&xml, " paint_fuzzy_skin=\"%s\"", code)
+			}
+			xml.WriteString("/>")
 		}
 		xml.WriteString("</triangles></mesh></object>")
 		fmt.Fprintf(&items, "<item objectid=\"%d\" transform=\"%s\"/>", id, matrixAttr(o.Transform))
@@ -180,6 +191,24 @@ func buildThreeMF(objects []ThreeMFObject) ([]byte, error) {
 		settings.WriteString("  </object>\n")
 	}
 	settings.WriteString("</config>\n")
+	var ranges strings.Builder
+	for i, o := range objects {
+		if len(o.Ranges) == 0 {
+			continue
+		}
+		fmt.Fprintf(&ranges, " <object id=\"%d\">\n", i+1)
+		for _, r := range o.Ranges {
+			if r[1] <= r[0] {
+				continue
+			}
+			head := int(r[2])
+			if head < 1 {
+				head = 1
+			}
+			fmt.Fprintf(&ranges, "  <range min_z=\"%.3f\" max_z=\"%.3f\">\n   <option opt_key=\"extruder\">%d</option>\n   <option opt_key=\"layer_height\">%.3f</option>\n  </range>\n", r[0], r[1], head, rangeLayerHeight)
+		}
+		ranges.WriteString(" </object>\n")
+	}
 	fmt.Fprintf(&xml, "</resources><build>%s</build></model>", items.String())
 	types := "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"model\" ContentType=\"application/vnd.ms-package.3dmanufacturing-3dmodel+xml\"/></Types>"
 	rels := "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Target=\"/3D/3dmodel.model\" Id=\"rel0\" Type=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\"/></Relationships>"
@@ -189,6 +218,10 @@ func buildThreeMF(objects []ThreeMFObject) ([]byte, error) {
 	entries := []struct{ name, body string }{
 		{"[Content_Types].xml", types}, {"_rels/.rels", rels},
 		{"3D/3dmodel.model", xml.String()}, {"Metadata/model_settings.config", settings.String()},
+	}
+	if ranges.Len() > 0 {
+		entries = append(entries, struct{ name, body string }{"Metadata/layer_config_ranges.xml",
+			"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<objects>\n" + ranges.String() + "</objects>\n"})
 	}
 	for _, e := range entries {
 		w, err := zw.CreateHeader(&zip.FileHeader{Name: e.name, Method: zip.Deflate})

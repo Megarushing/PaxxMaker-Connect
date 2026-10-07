@@ -28,7 +28,7 @@ import (
 
 const (
 	appName = "PaxxMaker-Connect"
-	version = "1.3"
+	version = "1.4"
 )
 
 var listenPort = 8765
