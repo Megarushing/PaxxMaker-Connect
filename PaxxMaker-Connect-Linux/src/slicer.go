@@ -445,7 +445,7 @@ func (r *SliceRunner) run(job *SliceJob) error {
 	if err != nil {
 		return err
 	}
-	// Snapmaker Orca's CLI (2.3.5) crashes on an explicit prime-tower
+	// Snapmaker Orca's CLI (2.4.0) crashes on an explicit prime-tower
 	// filament: its normalize_fdm() reads nozzle_diameter from the process
 	// config. Without the key the tower uses the default, "0" (auto).
 	snapmaker := appKey == "snapmaker_orca"

@@ -57,7 +57,7 @@ Linux-only details:
   opened. When a profile inherits from one that is not there, PaxxMaker-Connect reads it from
   inside the AppImage (unpacked once to `~/.config/PaxxMaker-Connect/bundled`). Those profiles
   only complete `inherits` chains; they are not listed in the app.
-- Snapmaker Orca's command line (2.3.5) crashes on an explicit prime-tower filament
+- Snapmaker Orca's command line (2.4.0) crashes on an explicit prime-tower filament
   (`wipe_tower_filament`), and has no `--logfile`. PaxxMaker-Connect leaves the key out (the
   default, "auto", is the same) and catches the console output instead.
 
@@ -95,7 +95,7 @@ src/build.sh     # → src/build/PaxxMaker-Connect and Release/PaxxMaker-Connect
 
 ## Status
 
-Beta — tested on Ubuntu with OrcaSlicer 2.4 and Snapmaker Orca 2.3.5 AppImages and a Snapmaker
+Beta — tested on Ubuntu 24.04 with OrcaSlicer 2.4.2 and Snapmaker Orca 2.4.0 AppImages and a Snapmaker
 U1 (one and two heads). Bug reports are welcome as an issue; please include your distribution,
 which slicer and its version, the printer and, for slicing errors, the message from the app
 including its `Orca Exit` number.
