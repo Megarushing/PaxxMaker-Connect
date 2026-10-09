@@ -1,0 +1,32 @@
+PaxxMaker-Connect for Linux
+===========================
+
+Install
+-------
+1. Extract "PaxxMaker-Connect-Linux-....tar.gz" completely.
+2. In a terminal, run:  ./"PaxxMaker-Connect Install.sh"
+3. The program is copied to ~/.local/bin/PaxxMaker-Connect and a menu entry
+   is created.
+4. Optionally: start at login (a systemd user service), start at boot
+   without logging in (for a headless server), and the ufw firewall rule.
+
+To uninstall, run ./"PaxxMaker-Connect Deinstall.sh".
+
+Requirement: OrcaSlicer or Snapmaker Orca
+-----------------------------------------
+One of them has to be installed, e.g. the AppImage in ~/Applications:
+  OrcaSlicer:     https://github.com/OrcaSlicer/OrcaSlicer/releases
+  Snapmaker Orca: https://github.com/Snapmaker/OrcaSlicer/releases
+Other places: set PAXX_ORCA or PAXX_SNAPMAKER_ORCA to the program's path.
+Start the slicer once and walk through its setup wizard with your printer,
+so your printer, process and filament profiles exist.
+When both are installed, the installer asks which one slices. To change it
+later:  PaxxMaker-Connect --slicer snapmaker_orca   (or: orca)
+
+Connect
+-------
+Pairing page: http://127.0.0.1:8765/ (on this computer only). On a headless
+machine the code is in ~/.config/PaxxMaker-Connect/token.
+On the iPhone/iPad in PaxxMaker: Slicer › "Connect with QR code" and scan the
+QR code – or "Connect manually" and type the 6-character code.
+Computer and iPhone must be on the same Wi-Fi/network.
