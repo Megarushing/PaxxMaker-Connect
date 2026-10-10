@@ -1,16 +1,16 @@
 # PaxxMaker-Connect
 
 [![Latest release](https://img.shields.io/github/v/release/DanielR1c/PaxxMaker-Connect?label=Release)](https://github.com/DanielR1c/PaxxMaker-Connect/releases/latest)
-[![Platform](https://img.shields.io/badge/Platform-macOS%2013%2B%20%7C%20Windows%2010%2B-blue)](#requirements)
+[![Platform](https://img.shields.io/badge/Platform-macOS%2013%2B%20%7C%20Windows%2010%2B%20%7C%20Linux-blue)](#requirements)
 [![Status](https://img.shields.io/badge/Status-Beta-yellow)](#project-status)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/paxxmaker)
 
-PaxxMaker-Connect is a small macOS and Windows helper application that connects the iPhone/iPad app [PaxxMaker](https://github.com/DanielR1c/Paxxmaker-iOS-App)  with a locally installed OrcaSlicer instance.
+PaxxMaker-Connect is a small macOS, Windows and Linux helper application that connects the iPhone/iPad app [PaxxMaker](https://github.com/DanielR1c/Paxxmaker-iOS-App)  with a locally installed OrcaSlicer instance.
 The model is positioned, rotated, scaled and painted on the mobile device. PaxxMaker-Connect runs OrcaSlicer headlessly in the background and sends the generated G-code back to the app, which can then send it to the printer.
 No cloud, no account. Communication stays entirely on the local network. The pairing code is stored only on the computer and on the paired device.
 PaxxMaker-Connect does not modify OrcaSlicer. It only reads its profiles and uses OrcaSlicer's command-line interface.
-A running Mac or Windows PC with OrcaSlicer installed is required on the same network.
+A running Mac, Windows or Linux PC with OrcaSlicer installed is required on the same network.
 
 Features
 
@@ -50,6 +50,11 @@ Windows
 * Windows 10 or Windows 11, 64-bit
 * A single executable with no additional runtime, approximately 9 MB
 
+Linux
+
+* 64-bit (x86_64) Linux with systemd
+* A single static executable; OrcaSlicer or Snapmaker Orca (on Linux, Snapmaker Orca's command line can slice and may be used instead)
+
 Installation
 
 macOS
@@ -72,6 +77,14 @@ Windows
 
 To uninstall, run `PaxxMaker-Connect Deinstall.cmd`.
 The Windows build runs in the system tray. Its local pairing page is available at http://127.0.0.1:8765/, showing the code, QR code, Orca status, recent jobs and logs.
+
+Linux
+
+1. Extract `PaxxMaker-Connect-Linux-....tar.gz`.
+2. In a terminal, run `./"PaxxMaker-Connect Install.sh"`.
+3. The program is copied to `~/.local/bin` and a menu entry is created; optionally start at login (systemd user service), at boot on a headless machine, and a `ufw` rule.
+
+To uninstall, run `./"PaxxMaker-Connect Deinstall.sh"`. Details: [PaxxMaker-Connect-Linux/README.md](PaxxMaker-Connect-Linux/README.md).
 
 Pairing with PaxxMaker
 
